@@ -190,7 +190,16 @@ app.get('/api/apps', async (req, res) => {
     if (cat && cat !== 'All') filter.category = cat;
 
     const apps = await App.find(filter).sort({ downloads: -1 });
-    res.json(apps);
+
+    // THE MAGIC FIX: Add an 'id' field that matches MongoDB's '_id'
+    // This makes BOTH old and new frontend code work perfectly.
+    const appsWithId = apps.map(app => {
+      const obj = app.toObject();
+      obj.id = obj._id.toString();
+      return obj;
+    });
+
+    res.json(appsWithId);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch apps' });
   }
