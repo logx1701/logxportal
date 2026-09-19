@@ -3,9 +3,9 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
+const cloudinary = require('cloudinary').v2;
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const path = require('path');
-const fs = require('fs');
-const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -14,9 +14,16 @@ const TOKEN_TTL = '7d';
 const MONGO_URI = process.env.MONGO_URI;
 
 if (!MONGO_URI) {
-  console.error("❌ MONGO_URI is missing! Add it to your environment variables.");
+  console.error("❌ MONGO_URI is missing!");
   process.exit(1);
 }
+
+/* ---------- Cloudinary Config ---------- */
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
 /* ---------- Connect to MongoDB ---------- */
 mongoose.connect(MONGO_URI)
@@ -40,7 +47,6 @@ const appSchema = new mongoose.Schema({
   icon: { type: String, default: '?' },
   size: { type: String, default: '—' },
   downloads: { type: Number, default: 0 },
-  file: { type: String, default: null },
   downloadUrl: { type: String, default: null },
   uploadedBy: { type: String, default: 'system' },
   createdAt: { type: Date, default: Date.now }
@@ -51,43 +57,43 @@ const App = mongoose.model('App', appSchema);
 
 /* ---------- Seed initial apps if database is empty ---------- */
 async function seedApps() {
-  const count = await App.countDocuments();
-  if (count > 0) return; // Already has apps, don't seed.
+  try {
+    const count = await App.countDocuments();
+    if (count > 0) return;
 
-  const demoApps = [
-    { name: 'PixelCraft', category: 'Photo Editor', description: 'Professional photo editing with AI-powered tools.', rating: 4.8, color: '#EF4444', icon: 'P', downloads: 12400, size: '24 MB' },
-    { name: 'NoteFlow', category: 'Productivity', description: 'Beautiful notes with markdown and instant sync.', rating: 4.6, color: '#10B981', icon: 'N', downloads: 8300, size: '12 MB' },
-    { name: 'SoundWave', category: 'Music', description: 'Lossless music player with a 10-band EQ.', rating: 4.9, color: '#8B5CF6', icon: 'S', downloads: 22100, size: '38 MB' },
-    { name: 'CodeBox', category: 'Developer', description: 'A pocket IDE with syntax highlighting.', rating: 4.7, color: '#06B6D4', icon: 'C', downloads: 5400, size: '56 MB' },
-    { name: 'FitTrack', category: 'Health', description: 'Track workouts, sleep, and nutrition.', rating: 4.5, color: '#F59E0B', icon: 'F', downloads: 9100, size: '18 MB' },
-    { name: 'GameHub', category: 'Games', description: 'Curated indie games in one launcher.', rating: 4.4, color: '#EC4899', icon: 'G', downloads: 18200, size: '72 MB' },
-    { name: 'ChatZen', category: 'Social', description: 'End-to-end encrypted messaging.', rating: 4.6, color: '#3B82F6', icon: 'Z', downloads: 31200, size: '31 MB' },
-    { name: 'Weatherly', category: 'Utilities', description: 'Hyper-local forecasts with radar.', rating: 4.7, color: '#14B8A6', icon: 'W', downloads: 6700, size: '9 MB' }
-  ];
-
-  await App.insertMany(demoApps);
-  console.log('✅ Seeded 8 demo apps into MongoDB');
+    const demoApps = [
+      { name: 'PixelCraft', category: 'Photo Editor', description: 'Professional photo editing with AI-powered tools.', rating: 4.8, color: '#EF4444', icon: 'P', downloads: 12400, size: '24 MB' },
+      { name: 'NoteFlow', category: 'Productivity', description: 'Beautiful notes with markdown and instant sync.', rating: 4.6, color: '#10B981', icon: 'N', downloads: 8300, size: '12 MB' },
+      { name: 'SoundWave', category: 'Music', description: 'Lossless music player with a 10-band EQ.', rating: 4.9, color: '#8B5CF6', icon: 'S', downloads: 22100, size: '38 MB' },
+      { name: 'CodeBox', category: 'Developer', description: 'A pocket IDE with syntax highlighting.', rating: 4.7, color: '#06B6D4', icon: 'C', downloads: 5400, size: '56 MB' },
+      { name: 'FitTrack', category: 'Health', description: 'Track workouts, sleep, and nutrition.', rating: 4.5, color: '#F59E0B', icon: 'F', downloads: 9100, size: '18 MB' },
+      { name: 'GameHub', category: 'Games', description: 'Curated indie games in one launcher.', rating: 4.4, color: '#EC4899', icon: 'G', downloads: 18200, size: '72 MB' },
+      { name: 'ChatZen', category: 'Social', description: 'End-to-end encrypted messaging.', rating: 4.6, color: '#3B82F6', icon: 'Z', downloads: 31200, size: '31 MB' },
+      { name: 'Weatherly', category: 'Utilities', description: 'Hyper-local forecasts with radar.', rating: 4.7, color: '#14B8A6', icon: 'W', downloads: 6700, size: '9 MB' }
+    ];
+    await App.insertMany(demoApps);
+    console.log('✅ Seeded 8 demo apps into MongoDB');
+  } catch (err) {
+    console.error('Seed error (might be waiting for DB connection):', err.message);
+  }
 }
-seedApps();
+// Wait 2 seconds to ensure DB is connected before seeding
+setTimeout(seedApps, 2000);
 
 /* ---------- Express middleware ---------- */
 app.use(express.json({ limit: '1mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-/* ---------- Multer (file uploads) ---------- */
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const dir = path.join(__dirname, 'uploads');
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    cb(null, dir);
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname).slice(0, 10);
-    cb(null, crypto.randomUUID() + ext);
+/* ---------- Multer + Cloudinary Storage ---------- */
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'logx_uploads',
+    resource_type: 'auto',
+    allowed_formats: ['jpg', 'png', 'pdf', 'zip', 'rar', 'apk', 'exe', 'txt']
   }
 });
-const upload = multer({ storage, limits: { fileSize: 100 * 1024 * 1024 } });
+const upload = multer({ storage: storage });
 
 /* ---------- Auth helpers ---------- */
 function auth(required = true) {
@@ -214,7 +220,7 @@ app.post('/api/apps', auth(true), requireAdmin, upload.single('file'), async (re
       color: color || '#4F46E5',
       icon: (icon || name[0] || '?').toUpperCase().slice(0, 2),
       size: size || '—',
-      file: req.file ? req.file.filename : null,
+      downloadUrl: req.file ? req.file.path : null, // Cloudinary URL
       uploadedBy: req.user.email,
     });
     res.status(201).json(newApp);
@@ -232,13 +238,10 @@ app.post('/api/apps/:id/download', async (req, res) => {
     app.downloads = (app.downloads || 0) + 1;
     await app.save();
 
-    let downloadLink = null;
-    if (app.downloadUrl) downloadLink = app.downloadUrl;
-    else if (app.file) downloadLink = `/uploads/${app.file}`;
-
-    res.json({ ok: true, file: downloadLink, name: app.name });
+    res.json({ ok: true, file: app.downloadUrl, name: app.name });
   } catch (err) {
-    res.status(500).json({ error: 'Download failed' });
+    console.error("DOWNLOAD ERROR:", err);
+    res.status(500).json({ error: 'Download failed: ' + err.message });
   }
 });
 
@@ -247,10 +250,14 @@ app.delete('/api/apps/:id', auth(true), requireAdmin, async (req, res) => {
     const app = await App.findById(req.params.id);
     if (!app) return res.status(404).json({ error: 'App not found' });
 
-    if (app.file) {
-      const p = path.join(__dirname, 'uploads', app.file);
-      if (fs.existsSync(p)) fs.unlinkSync(p);
+    // Delete from Cloudinary if it has a public_id (stored in downloadUrl)
+    if (app.downloadUrl && app.downloadUrl.includes('cloudinary')) {
+      try {
+        const publicId = app.downloadUrl.split('/').slice(-2).join('/').split('.')[0];
+        await cloudinary.uploader.destroy(publicId);
+      } catch (e) { console.error('Cloudinary delete error:', e); }
     }
+
     await App.findByIdAndDelete(req.params.id);
     res.json({ ok: true });
   } catch (err) {
