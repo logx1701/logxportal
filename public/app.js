@@ -310,6 +310,15 @@ document.addEventListener('keydown', e => {
 
 (async function init() {
   await restoreSession();
-  await loadCategories();
-  await loadApps();
+  try {
+    await loadCategories();
+  } catch (e) {
+    console.error("Categories failed", e);
+  }
+  try {
+    await loadApps();
+  } catch (e) {
+    console.error("Apps failed", e);
+    document.getElementById('grid').innerHTML = `<div class="empty">Server is waking up from sleep.<br>Please wait 30 seconds and refresh this page!</div>`;
+  }
 })();
