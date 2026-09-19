@@ -87,27 +87,41 @@ function requireAdmin(req, res, next) {
    ============================================================ */
 
 // Register
-app.post('/api/apps/:id/download', (req, res) => {
-  const apps = readJSON(APPS_FILE, []);
-  const app = apps.find(a => a.id === req.params.id);
-  if (!app) return res.status(404).json({ error: 'App not found' });
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { email, password } = req.body || {};
+    if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Invalid email address' });
+    if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
 
-  app.downloads = (app.downloads || 0) + 1;
-  writeJSON(APPS_FILE, apps);
+    const users = readJSON(USERS_FILE, []);
+    const normalized = email.toLowerCase().trim();
+    if (users.find(u => u.email === normalized)) {
+      return res.status(409).json({ error: 'That email is already registered' });
+    }
 
-  // If it's a URL, send that. If it's an uploaded file, send that.
-  let downloadLink = null;
-  if (app.downloadUrl) {
-    downloadLink = app.downloadUrl;
-  } else if (app.file) {
-    downloadLink = `/uploads/${app.file}`;
+    const hash = await bcrypt.hash(password, 12);
+    const isFirst = users.length === 0;
+    const user = {
+      id: crypto.randomUUID(),
+      email: normalized,
+      hash,
+      role: isFirst ? 'admin' : 'user',
+      createdAt: Date.now()
+    };
+    users.push(user);
+    writeJSON(USERS_FILE, users);
+
+    const token = jwt.sign(
+      { id: user.id, email: user.email, role: user.role },
+      JWT_SECRET,
+      { expiresIn: TOKEN_TTL }
+    );
+    res.json({ token, user: { id: user.id, email: user.email, role: user.role } });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
   }
-
-  res.json({
-    ok: true,
-    file: downloadLink,
-    name: app.name
-  });
 });
 
 const hash = await bcrypt.hash(password, 12);
@@ -132,7 +146,6 @@ res.json({ token, user: { id: user.id, email: user.email, role: user.role } });
   console.error(err);
   res.status(500).json({ error: 'Server error' });
 }
-});
 
 // Login
 app.post('/api/auth/login', async (req, res) => {
