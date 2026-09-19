@@ -2,7 +2,7 @@
    LOGX — frontend
    ========================================================= */
 
-const API = ''; // same origin
+const API = '';
 let token = localStorage.getItem('logx_token') || null;
 let currentUser = null;
 let allApps = [];
@@ -16,13 +16,15 @@ function showToast(msg, isError = false) {
   t.classList.toggle('err', isError);
   t.classList.add('show');
   clearTimeout(t._timer);
-  t._timer = setTimeout(() => t.classList.remove('show'), 2600);
+  t._timer = setTimeout(() => t.classList.remove('show'), 3000);
 }
+
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   }[c]));
 }
+
 async function api(path, opts = {}) {
   const headers = { ...(opts.headers || {}) };
   if (token) headers.Authorization = 'Bearer ' + token;
@@ -34,32 +36,6 @@ async function api(path, opts = {}) {
   try { data = await res.json(); } catch { }
   if (!res.ok) throw new Error((data && data.error) || ('HTTP ' + res.status));
   return data;
-}
-async function downloadApp(id) {
-  try {
-    const r = await api('/api/apps/' + id + '/download', { method: 'POST' });
-    if (r.file) {
-      if (r.file.startsWith('http')) {
-        // It's an external link (like Google Drive or GitHub)
-        window.open(r.file, '_blank');
-        showToast(`Downloading ${r.name} from external link…`);
-      } else {
-        // It's a local file uploaded to your server
-        const a = document.createElement('a');
-        a.href = r.file;
-        a.download = '';
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        showToast(`Downloading ${r.name}…`);
-      }
-    } else {
-      showToast(`${r.name} — demo app (no file attached)`);
-    }
-    loadApps();
-  } catch (e) {
-    showToast(e.message, true);
-  }
 }
 
 /* =========================================================
@@ -199,32 +175,41 @@ function renderGrid(apps) {
   }
   const isAdmin = currentUser?.role === 'admin';
 
-  grid.innerHTML = apps.map(a => `
-    <div class="app-card" onclick="openDetail('${a.id}')">
+  grid.innerHTML = apps.map(a => {
+    // THE FIX: Use _id if it exists (from MongoDB), otherwise use id
+    const appId = a._id || a.id;
+    return `
+    <div class="app-card" onclick="openDetail('${appId}')">
       <div class="app-icon" style="background:${escapeHtml(a.color)}">${escapeHtml(a.icon)}</div>
       <h3>${escapeHtml(a.name)}</h3>
       <div class="cat">${escapeHtml(a.category)}</div>
       <div class="desc">${escapeHtml(a.description)}</div>
       <div class="actions">
         <span class="rating">★ ${a.rating.toFixed(1)}</span>
-        <button class="dl-btn" onclick="event.stopPropagation(); downloadApp('${a.id}')">Download</button>
+        <button class="dl-btn" onclick="event.stopPropagation(); downloadApp('${appId}')">Download</button>
       </div>
-      ${isAdmin ? `<button class="btn-danger" style="margin-top:12px;padding:6px;border-radius:8px;cursor:pointer;border:1px solid #3a1a1a;background:transparent;color:#EF4444" onclick="event.stopPropagation(); deleteApp('${a.id}')">Delete</button>` : ''}
+      ${isAdmin ? `<button class="btn-danger" style="margin-top:12px;padding:6px;border-radius:8px;cursor:pointer;border:1px solid #3a1a1a;background:transparent;color:#EF4444" onclick="event.stopPropagation(); deleteApp('${appId}')">Delete</button>` : ''}
     </div>
-  `).join('');
+  `}).join('');
 }
 
 async function downloadApp(id) {
+  if (!id || id === 'undefined') { showToast('Invalid app ID', true); return; }
   try {
     const r = await api('/api/apps/' + id + '/download', { method: 'POST' });
     if (r.file) {
-      const a = document.createElement('a');
-      a.href = r.file;
-      a.download = '';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      showToast(`Downloading ${r.name}…`);
+      if (r.file.startsWith('http')) {
+        window.open(r.file, '_blank');
+        showToast(`Downloading ${r.name} from external link…`);
+      } else {
+        const a = document.createElement('a');
+        a.href = r.file;
+        a.download = '';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        showToast(`Downloading ${r.name}…`);
+      }
     } else {
       showToast(`${r.name} — demo app (no file attached)`);
     }
@@ -251,8 +236,9 @@ function scrollToApps() {
 
 /* ---------- Detail modal ---------- */
 function openDetail(id) {
-  const a = allApps.find(x => x.id === id);
+  const a = allApps.find(x => (x._id || x.id) === id);
   if (!a) return;
+  const appId = a._id || a.id;
   $('detailBody').innerHTML = `
     <div class="detail-head">
       <div class="app-icon" style="background:${escapeHtml(a.color)}">${escapeHtml(a.icon)}</div>
@@ -267,7 +253,7 @@ function openDetail(id) {
       <div>Uploaded by <b>${escapeHtml((a.uploadedBy || '').split('@')[0])}</b></div>
     </div>
     <div class="detail-body"><p>${escapeHtml(a.description)}</p></div>
-    <button class="btn btn-primary wide" onclick="downloadApp('${a.id}')">Download Now</button>
+    <button class="btn btn-primary wide" onclick="downloadApp('${appId}')">Download Now</button>
   `;
   $('detailModal').classList.add('show');
 }
@@ -326,15 +312,6 @@ document.addEventListener('keydown', e => {
 
 (async function init() {
   await restoreSession();
-  try {
-    await loadCategories();
-  } catch (e) {
-    console.error("Categories failed", e);
-  }
-  try {
-    await loadApps();
-  } catch (e) {
-    console.error("Apps failed", e);
-    document.getElementById('grid').innerHTML = `<div class="empty">Server is waking up from sleep.<br>Please wait 30 seconds and refresh this page!</div>`;
-  }
+  try { await loadCategories(); } catch (e) { }
+  try { await loadApps(); } catch (e) { }
 })();
