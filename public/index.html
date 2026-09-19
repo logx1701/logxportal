@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LOGX — Download Apps</title>
+  <link rel="icon" href="/logo.svg">
+  <link rel="stylesheet" href="/style.css">
+</head>
+
+<body>
+
+  <nav>
+    <div class="logo">
+      <img src="/logo.svg" alt="LOGX" width="34" height="34">
+      <span>LOGX</span>
+    </div>
+    <div class="nav-links">
+      <a onclick="scrollToApps()">Apps</a>
+      <span id="userArea"></span>
+    </div>
+  </nav>
+
+  <header class="hero">
+    <h1>Discover &amp; Download Apps</h1>
+    <p>A secure marketplace for the apps you love. Fast, safe, and always free.</p>
+
+    <div class="search-bar">
+      <input id="search" type="text" placeholder="Search apps..." oninput="loadApps()">
+      <select id="categoryFilter" onchange="loadApps()"></select>
+    </div>
+  </header>
+
+  <main class="container" id="apps">
+    <div class="grid" id="grid">
+      <div class="empty">Loading…</div>
+    </div>
+  </main>
+
+  <footer>© 2025 LOGX — Built with security in mind 🔒</footer>
+
+  <!-- AUTH MODAL -->
+  <div class="modal-bg" id="authModal">
+    <div class="modal">
+      <button class="close" onclick="closeAuth()">×</button>
+      <h2 id="authTitle">Sign In</h2>
+      <div class="error" id="authError"></div>
+      <input id="email" type="email" placeholder="Email" autocomplete="email">
+      <input id="password" type="password" placeholder="Password (min 8 chars)" autocomplete="current-password">
+      <input id="confirm" type="password" placeholder="Confirm Password" style="display:none">
+      <button class="btn btn-primary wide" id="authSubmit" onclick="handleAuth()">Sign In</button>
+      <div class="switch" id="authSwitch"></div>
+    </div>
+  </div>
+
+  <!-- APP DETAIL MODAL -->
+  <div class="modal-bg" id="detailModal">
+    <div class="modal detail">
+      <button class="close" onclick="closeDetail()">×</button>
+      <div id="detailBody"></div>
+    </div>
+  </div>
+
+  <!-- UPLOAD MODAL -->
+  <div class="modal-bg" id="uploadModal">
+    <div class="modal">
+      <button class="close" onclick="closeUpload()">×</button>
+      <h2>Upload New App</h2>
+      <div class="error" id="uploadError"></div>
+      <input id="upName" placeholder="App name *">
+      <input id="upCategory" placeholder="Category * (e.g. Games)">
+      <input id="upRating" type="number" step="0.1" min="0" max="5" placeholder="Rating (0–5)">
+      <input id="upColor" type="color" value="#4F46E5" style="height:44px;padding:4px">
+      <textarea id="upDesc" placeholder="Description" rows="3"></textarea>
+      <input id="upFile" type="file" style="padding:10px">
+      <button class="btn btn-primary wide" onclick="submitUpload()">Upload App</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="/app.js"></script>
+</body>
+
+</html>
