@@ -89,8 +89,8 @@ const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
     folder: 'logx_uploads',
-    resource_type: 'auto',
-    allowed_formats: ['jpg', 'png', 'pdf', 'zip', 'rar', 'apk', 'exe', 'txt']
+    resource_type: 'auto'
+    // We removed the 'allowed_formats' restriction so any file works!
   }
 });
 const upload = multer({ storage: storage });
