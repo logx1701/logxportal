@@ -19,23 +19,31 @@ function showToast(msg, isError = false) {
   t._timer = setTimeout(() => t.classList.remove('show'), 2600);
 }
 
-async function api(path, opts = {}) {
-  const headers = { ...(opts.headers || {}) };
-  if (token) headers.Authorization = 'Bearer ' + token;
-  if (opts.body && !(opts.body instanceof FormData)) {
-    headers['Content-Type'] = 'application/json';
+async function downloadApp(id) {
+  try {
+    const r = await api('/api/apps/' + id + '/download', { method: 'POST' });
+    if (r.file) {
+      if (r.file.startsWith('http')) {
+        // It's an external link (like Google Drive or GitHub)
+        window.open(r.file, '_blank');
+        showToast(`Downloading ${r.name} from external link…`);
+      } else {
+        // It's a local file uploaded to your server
+        const a = document.createElement('a');
+        a.href = r.file;
+        a.download = '';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        showToast(`Downloading ${r.name}…`);
+      }
+    } else {
+      showToast(`${r.name} — demo app (no file attached)`);
+    }
+    loadApps();
+  } catch (e) {
+    showToast(e.message, true);
   }
-  const res = await fetch(API + path, { ...opts, headers });
-  let data = null;
-  try { data = await res.json(); } catch { }
-  if (!res.ok) throw new Error((data && data.error) || ('HTTP ' + res.status));
-  return data;
-}
-
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, c => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-  }[c]));
 }
 
 /* =========================================================

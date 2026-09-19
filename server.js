@@ -28,14 +28,13 @@ if (!fs.existsSync(APPS_FILE)) writeJSON(APPS_FILE, seedApps());
 function seedApps() {
   const now = Date.now();
   return [
-    { id: crypto.randomUUID(), name: 'PixelCraft', category: 'Photo Editor', description: 'Professional photo editing with AI-powered tools, layers, and stunning filters.', rating: 4.8, color: '#EF4444', icon: 'P', downloads: 12400, size: '24 MB', file: null, uploadedBy: 'system', createdAt: now },
-    { id: crypto.randomUUID(), name: 'NoteFlow', category: 'Productivity', description: 'Beautiful notes with markdown, tags, and instant sync across devices.', rating: 4.6, color: '#10B981', icon: 'N', downloads: 8300, size: '12 MB', file: null, uploadedBy: 'system', createdAt: now },
-    { id: crypto.randomUUID(), name: 'SoundWave', category: 'Music', description: 'Lossless music player with a 10-band EQ and offline playlists.', rating: 4.9, color: '#8B5CF6', icon: 'S', downloads: 22100, size: '38 MB', file: null, uploadedBy: 'system', createdAt: now },
-    { id: crypto.randomUUID(), name: 'CodeBox', category: 'Developer', description: 'A pocket IDE with syntax highlighting for 40+ languages.', rating: 4.7, color: '#06B6D4', icon: 'C', downloads: 5400, size: '56 MB', file: null, uploadedBy: 'system', createdAt: now },
-    { id: crypto.randomUUID(), name: 'FitTrack', category: 'Health', description: 'Track workouts, sleep, and nutrition with smart insights.', rating: 4.5, color: '#F59E0B', icon: 'F', downloads: 9100, size: '18 MB', file: null, uploadedBy: 'system', createdAt: now },
-    { id: crypto.randomUUID(), name: 'GameHub', category: 'Games', description: 'Curated indie games in one lightweight launcher.', rating: 4.4, color: '#EC4899', icon: 'G', downloads: 18200, size: '72 MB', file: null, uploadedBy: 'system', createdAt: now },
-    { id: crypto.randomUUID(), name: 'ChatZen', category: 'Social', description: 'End-to-end encrypted messaging with voice and video calls.', rating: 4.6, color: '#3B82F6', icon: 'Z', downloads: 31200, size: '31 MB', file: null, uploadedBy: 'system', createdAt: now },
-    { id: crypto.randomUUID(), name: 'Weatherly', category: 'Utilities', description: 'Hyper-local forecasts with radar and severe weather alerts.', rating: 4.7, color: '#14B8A6', icon: 'W', downloads: 6700, size: '9 MB', file: null, uploadedBy: 'system', createdAt: now }
+    // Example of a real permanent download link!
+    { id: crypto.randomUUID(), name: 'PixelCraft', category: 'Photo Editor', description: 'Professional photo editing with AI-powered tools.', rating: 4.8, color: '#EF4444', icon: 'P', downloads: 12400, size: '24 MB', file: null, downloadUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', uploadedBy: 'system', createdAt: now },
+
+    // The rest can stay as demos for now
+    { id: crypto.randomUUID(), name: 'NoteFlow', category: 'Productivity', description: 'Beautiful notes with markdown and instant sync.', rating: 4.6, color: '#10B981', icon: 'N', downloads: 8300, size: '12 MB', file: null, downloadUrl: null, uploadedBy: 'system', createdAt: now },
+    { id: crypto.randomUUID(), name: 'SoundWave', category: 'Music', description: 'Lossless music player with a 10-band EQ.', rating: 4.9, color: '#8B5CF6', icon: 'S', downloads: 22100, size: '38 MB', file: null, downloadUrl: null, uploadedBy: 'system', createdAt: now },
+    { id: crypto.randomUUID(), name: 'CodeBox', category: 'Developer', description: 'A pocket IDE with syntax highlighting.', rating: 4.7, color: '#06B6D4', icon: 'C', downloads: 5400, size: '56 MB', file: null, downloadUrl: null, uploadedBy: 'system', createdAt: now },
   ];
 }
 
@@ -88,41 +87,51 @@ function requireAdmin(req, res, next) {
    ============================================================ */
 
 // Register
-app.post('/api/auth/register', async (req, res) => {
-  try {
-    const { email, password } = req.body || {};
-    if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Invalid email address' });
-    if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
+app.post('/api/apps/:id/download', (req, res) => {
+  const apps = readJSON(APPS_FILE, []);
+  const app = apps.find(a => a.id === req.params.id);
+  if (!app) return res.status(404).json({ error: 'App not found' });
 
-    const users = readJSON(USERS_FILE, []);
-    const normalized = email.toLowerCase().trim();
-    if (users.find(u => u.email === normalized)) {
-      return res.status(409).json({ error: 'That email is already registered' });
-    }
+  app.downloads = (app.downloads || 0) + 1;
+  writeJSON(APPS_FILE, apps);
 
-    const hash = await bcrypt.hash(password, 12);
-    const isFirst = users.length === 0;
-    const user = {
-      id: crypto.randomUUID(),
-      email: normalized,
-      hash,
-      role: isFirst ? 'admin' : 'user',
-      createdAt: Date.now()
-    };
-    users.push(user);
-    writeJSON(USERS_FILE, users);
-
-    const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role },
-      JWT_SECRET,
-      { expiresIn: TOKEN_TTL }
-    );
-    res.json({ token, user: { id: user.id, email: user.email, role: user.role } });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Server error' });
+  // If it's a URL, send that. If it's an uploaded file, send that.
+  let downloadLink = null;
+  if (app.downloadUrl) {
+    downloadLink = app.downloadUrl;
+  } else if (app.file) {
+    downloadLink = `/uploads/${app.file}`;
   }
+
+  res.json({
+    ok: true,
+    file: downloadLink,
+    name: app.name
+  });
+});
+
+const hash = await bcrypt.hash(password, 12);
+const isFirst = users.length === 0;
+const user = {
+  id: crypto.randomUUID(),
+  email: normalized,
+  hash,
+  role: isFirst ? 'admin' : 'user',
+  createdAt: Date.now()
+};
+users.push(user);
+writeJSON(USERS_FILE, users);
+
+const token = jwt.sign(
+  { id: user.id, email: user.email, role: user.role },
+  JWT_SECRET,
+  { expiresIn: TOKEN_TTL }
+);
+res.json({ token, user: { id: user.id, email: user.email, role: user.role } });
+  } catch (err) {
+  console.error(err);
+  res.status(500).json({ error: 'Server error' });
+}
 });
 
 // Login
