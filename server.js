@@ -62,26 +62,164 @@ const User = mongoose.model('User', userSchema);
 const App = mongoose.model('App', appSchema);
 const Review = mongoose.model('Review', reviewSchema);
 
-/* ---------- Seed initial apps ---------- */
 async function seedApps() {
   try {
-    const count = await App.countDocuments();
-    if (count > 0) return;
-    const demoApps = [
-      { name: 'PixelCraft', category: 'Photo Editor', description: 'Professional photo editing with AI-powered tools.', rating: 4.8, color: '#EF4444', icon: 'P', downloads: 12400, size: '24 MB' },
-      { name: 'NoteFlow', category: 'Productivity', description: 'Beautiful notes with markdown and instant sync.', rating: 4.6, color: '#10B981', icon: 'N', downloads: 8300, size: '12 MB' },
-      { name: 'SoundWave', category: 'Music', description: 'Lossless music player with a 10-band EQ.', rating: 4.9, color: '#8B5CF6', icon: 'S', downloads: 22100, size: '38 MB' },
-      { name: 'CodeBox', category: 'Developer', description: 'A pocket IDE with syntax highlighting.', rating: 4.7, color: '#06B6D4', icon: 'C', downloads: 5400, size: '56 MB' },
-      { name: 'FitTrack', category: 'Health', description: 'Track workouts, sleep, and nutrition.', rating: 4.5, color: '#F59E0B', icon: 'F', downloads: 9100, size: '18 MB' },
-      { name: 'GameHub', category: 'Games', description: 'Curated indie games in one launcher.', rating: 4.4, color: '#EC4899', icon: 'G', downloads: 18200, size: '72 MB' },
-      { name: 'ChatZen', category: 'Social', description: 'End-to-end encrypted messaging.', rating: 4.6, color: '#3B82F6', icon: 'Z', downloads: 31200, size: '31 MB' },
-      { name: 'Weatherly', category: 'Utilities', description: 'Hyper-local forecasts with radar.', rating: 4.7, color: '#14B8A6', icon: 'W', downloads: 6700, size: '9 MB' }
+    // These are REAL apps that link to their official download pages
+    const realApps = [
+      {
+        name: 'YouTube',
+        category: 'Entertainment',
+        description: 'Watch videos, music, live streams, and more from creators around the world.',
+        rating: 4.7,
+        color: '#FF0000',
+        icon: 'Y',
+        size: 'Free',
+        downloads: 5000000000,
+        downloadUrl: 'https://play.google.com/store/apps/details?id=com.google.android.youtube'
+      },
+      {
+        name: 'WhatsApp',
+        category: 'Social',
+        description: 'Simple, reliable, private messaging and calling for free, available all over the world.',
+        rating: 4.6,
+        color: '#25D366',
+        icon: 'W',
+        size: 'Free',
+        downloads: 5000000000,
+        downloadUrl: 'https://www.whatsapp.com/download'
+      },
+      {
+        name: 'Google Chrome',
+        category: 'Utilities',
+        description: 'Fast, secure, and free web browser built for the modern web.',
+        rating: 4.5,
+        color: '#4285F4',
+        icon: 'C',
+        size: 'Free',
+        downloads: 3000000000,
+        downloadUrl: 'https://www.google.com/chrome/'
+      },
+      {
+        name: 'Google Maps',
+        category: 'Navigation',
+        description: 'Navigate your world faster and easier with real-time GPS, traffic, and transit info.',
+        rating: 4.8,
+        color: '#34A853',
+        icon: 'M',
+        size: 'Free',
+        downloads: 2000000000,
+        downloadUrl: 'https://www.google.com/maps'
+      },
+      {
+        name: 'Spotify',
+        category: 'Music',
+        description: 'Play millions of songs and podcasts for free. Discover new music every day.',
+        rating: 4.7,
+        color: '#1DB954',
+        icon: 'S',
+        size: 'Free',
+        downloads: 1000000000,
+        downloadUrl: 'https://www.spotify.com/download/'
+      },
+      {
+        name: 'Instagram',
+        category: 'Social',
+        description: 'Share photos, videos, and stories with friends, and discover content you love.',
+        rating: 4.5,
+        color: '#E4405F',
+        icon: 'I',
+        size: 'Free',
+        downloads: 2000000000,
+        downloadUrl: 'https://www.instagram.com/'
+      },
+      {
+        name: 'TikTok',
+        category: 'Entertainment',
+        description: 'Short-form videos, music, trends, and a world of creativity in your pocket.',
+        rating: 4.4,
+        color: '#000000',
+        icon: 'T',
+        size: 'Free',
+        downloads: 3000000000,
+        downloadUrl: 'https://www.tiktok.com/download'
+      },
+      {
+        name: 'Netflix',
+        category: 'Entertainment',
+        description: 'Watch TV shows and movies anytime, anywhere. Plans from budget to premium.',
+        rating: 4.3,
+        color: '#E50914',
+        icon: 'N',
+        size: 'Free',
+        downloads: 1000000000,
+        downloadUrl: 'https://www.netflix.com/'
+      },
+      {
+        name: 'Gmail',
+        category: 'Productivity',
+        description: 'Fast, secure email with smart features. The email service trusted by billions.',
+        rating: 4.6,
+        color: '#EA4335',
+        icon: 'G',
+        size: 'Free',
+        downloads: 5000000000,
+        downloadUrl: 'https://mail.google.com/'
+      },
+      {
+        name: 'Telegram',
+        category: 'Social',
+        description: 'Fast, secure messaging with cloud sync, groups, and channels for everyone.',
+        rating: 4.8,
+        color: '#0088CC',
+        icon: 'T',
+        size: 'Free',
+        downloads: 800000000,
+        downloadUrl: 'https://telegram.org/'
+      },
+      {
+        name: 'Discord',
+        category: 'Social',
+        description: 'Voice, video, and text chat for communities, gamers, and friends.',
+        rating: 4.5,
+        color: '#5865F2',
+        icon: 'D',
+        size: 'Free',
+        downloads: 500000000,
+        downloadUrl: 'https://discord.com/download'
+      },
+      {
+        name: 'VLC Media Player',
+        category: 'Media',
+        description: 'Free and open-source media player that plays virtually any format.',
+        rating: 4.9,
+        color: '#FF8800',
+        icon: 'V',
+        size: '40 MB',
+        downloads: 300000000,
+        downloadUrl: 'https://www.videolan.org/vlc/'
+      }
     ];
-    await App.insertMany(demoApps);
-    console.log('✅ Seeded demo apps');
-  } catch (err) { console.error('Seed error:', err.message); }
+
+    // Add each app only if it doesn't already exist (by name)
+    let addedCount = 0;
+    for (const appData of realApps) {
+      const exists = await App.findOne({ name: appData.name });
+      if (!exists) {
+        await App.create(appData);
+        addedCount++;
+      }
+    }
+
+    if (addedCount > 0) {
+      console.log(`✅ Added ${addedCount} real apps to database`);
+    } else {
+      console.log('✅ All real apps already in database');
+    }
+  } catch (err) {
+    console.error('Seed error:', err.message);
+  }
 }
-setTimeout(seedApps, 2000);
+setTimeout(seedApps, 3000);
 
 /* ---------- Middleware ---------- */
 app.use(express.json({ limit: '1mb' }));
